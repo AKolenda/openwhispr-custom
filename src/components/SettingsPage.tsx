@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "./ui/button";
+import EscapeCancellationSettings from "./settings/EscapeCancellationSettings";
 import { Input } from "./ui/input";
 import { BIDI_VALUE_TOKEN, BidiInterpolatedText } from "./ui/BidiInterpolatedText";
 import { Badge } from "./ui/badge";
@@ -3965,6 +3966,7 @@ EOF`,
       case "hotkeys":
         return (
           <div className="space-y-6">
+            <EscapeCancellationSettings />
             {isUsingHyprland && hyprlandConfigStatus && !hyprlandConfigStatus.canWrite && (
               <Alert>
                 <Info className="h-4 w-4" />

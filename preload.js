@@ -579,6 +579,15 @@ contextBridge.exposeInMainWorld("electronAPI", {
   onUpdateDownloadProgress: registerListener("update-download-progress"),
   onUpdateError: registerListener("update-error"),
 
+  // Non-secret, main-process-owned preference; the API-key bridges are unchanged.
+  getEscapeCancelsDictation: () => ipcRenderer.invoke("get-escape-cancels-dictation"),
+  setEscapeCancelsDictation: (enabled) =>
+    ipcRenderer.invoke("set-escape-cancels-dictation", enabled),
+  onEscapeCancelsDictationChanged: registerListener(
+    "escape-cancels-dictation-changed",
+    (callback) => (_event, enabled) => callback(enabled)
+  ),
+
   // Audio event listeners
   onCancelHotkeyPressed: registerListener("cancel-hotkey-pressed", (cb) => () => cb()),
   registerCancelHotkey: (key) => ipcRenderer.invoke("register-cancel-hotkey", key),

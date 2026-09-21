@@ -6,6 +6,7 @@ import type { LanguageModel } from "ai";
 import { getTinfoilLanguageModel } from "./tinfoilClient";
 import { API_ENDPOINTS } from "../../config/constants";
 import { openCodeSessionHeaders } from "./openCodeSession";
+import { createOpenRouterRoutingFetch, isOpenRouterEndpoint } from "./openRouterRouting";
 
 // Renderer-side AI SDK factory. Cloud + local only — enterprise providers
 // (bedrock/azure/vertex) run in the main process via the
@@ -13,18 +14,7 @@ import { openCodeSessionHeaders } from "./openCodeSession";
 // APIs (fs, process, AWS credential chain) that don't work in the browser.
 // See `src/helpers/enterpriseAiProviders.js` for the main-process counterpart.
 
-// OpenRouter's reasoning control is a top-level request field the AI SDK
-// can't emit — inject it at the fetch boundary.
-const withDisabledReasoning: typeof fetch = (input, init) => {
-  if (typeof init?.body === "string") {
-    try {
-      const body = JSON.parse(init.body);
-      body.reasoning = { enabled: false };
-      init = { ...init, body: JSON.stringify(body) };
-    } catch {}
-  }
-  return fetch(input, init);
-};
+// OpenRouter routing and reasoning controls share the fetch boundary.
 
 export async function getAIModel(
   provider: string,
@@ -61,13 +51,24 @@ export async function getAIModel(
         apiKey,
         baseURL,
         headers: openCodeSessionHeaders(baseURL),
+        ...(isOpenRouterEndpoint(baseURL)
+          ? {
+              fetch: createOpenRouterRoutingFetch(
+                (input, init) => fetch(input, init),
+                opts?.disableThinking === true
+              ),
+            }
+          : {}),
       }).chat(model);
     case "openrouter":
       // OpenRouter implements Chat Completions, not the OpenAI Responses API.
       return createOpenAI({
         apiKey,
         baseURL,
-        ...(opts?.disableThinking ? { fetch: withDisabledReasoning } : {}),
+        fetch: createOpenRouterRoutingFetch(
+          (input, init) => fetch(input, init),
+          opts?.disableThinking === true
+        ),
       }).chat(model);
     case "local":
       return createOpenAI({ apiKey: apiKey || "no-key", baseURL }).chat(model);

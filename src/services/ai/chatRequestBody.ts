@@ -3,6 +3,7 @@ import { getOpenAiApiConfig } from "../../models/ModelRegistry";
 import { detectEndpointDialect } from "./thinkingSuppressionDialects";
 import { getModelFamilyConstraints } from "./modelFamilyConstraints";
 import { applyThinkingSuppression } from "./thinkingSuppression";
+import { applyOpenRouterRouting } from "./openRouterRouting";
 
 /**
  * Providers whose OpenAI-compat chat endpoints speak the legacy shape: always
@@ -63,6 +64,7 @@ export function applyChatCompletionsParams(
   }
 
   applyThinkingSuppression(requestBody, model, provider, config, endpoint ?? undefined);
+  applyOpenRouterRouting(requestBody, provider, endpoint);
 }
 
 /** Finish reasons that mean the output hit the token cap, across providers. */

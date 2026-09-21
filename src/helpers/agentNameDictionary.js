@@ -16,6 +16,24 @@ function findStoredWord(words, word) {
  * @param {string} [oldName]
  * @returns {{ add: string[], remove: string[] }}
  */
+export function agentNameDictionaryChangesWithoutDefault(
+  dictionary,
+  newName,
+  oldName,
+  defaultName = "OpenWhispr"
+) {
+  const words = Array.isArray(dictionary) ? dictionary : [];
+  const normalizedDefault = defaultName.trim().toLowerCase();
+  const requestedName =
+    typeof newName === "string" && newName.trim().toLowerCase() === normalizedDefault
+      ? ""
+      : newName;
+  const changes = agentNameDictionaryChanges(words, requestedName, oldName);
+  const storedDefault = findStoredWord(words, defaultName);
+  if (storedDefault && !changes.remove.includes(storedDefault)) changes.remove.push(storedDefault);
+  return changes;
+}
+
 export function agentNameDictionaryChanges(dictionary, newName, oldName) {
   const words = Array.isArray(dictionary) ? dictionary : [];
   const trimmedNew = typeof newName === "string" ? newName.trim() : "";

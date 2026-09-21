@@ -35,6 +35,8 @@ import TestConnectionButton from "../TestConnectionButton";
 import { getEnterpriseCallSettings } from "../../services/ai/enterpriseSettings";
 import { Button } from "../ui/button";
 import { useStartOnboarding } from "../../hooks/useStartOnboarding";
+import OpenRouterRoutingSettings from "./OpenRouterRoutingSettings";
+import { isOpenRouterEndpoint } from "../../services/ai/openRouterRouting";
 
 const MODE_LABEL_PREFIX: Record<InferenceScope, string> = {
   dictationCleanup: "settingsPage.aiModels.modes",
@@ -72,6 +74,7 @@ export default function InferenceConfigEditor({
     })
   );
   const isSignedIn = useSettingsStore((s) => s.isSignedIn);
+  const routingApiKey = useSettingsStore((s) => s.openrouterApiKey);
   const enterpriseSetupMode = useSettingsStore((s) => s.enterpriseSetupMode);
   const setEnterpriseSetupMode = useSettingsStore((s) => s.setEnterpriseSetupMode);
   const managed = useManagedScopeResolution(scope, enterpriseSetupMode);
@@ -289,6 +292,17 @@ export default function InferenceConfigEditor({
       )}
 
       {effectiveMode === "providers" && renderModelSelector("cloud")}
+      {effectiveMode === "providers" &&
+        config.model &&
+        (config.provider === "openrouter" ||
+          (config.provider === "custom" && isOpenRouterEndpoint(config.cloudBaseUrl))) && (
+          <OpenRouterRoutingSettings
+            key={config.provider + ":" + config.model}
+            model={config.model}
+            apiKey={config.provider === "openrouter" ? routingApiKey : (config.customApiKey ?? "")}
+            disableThinking={config.disableThinking}
+          />
+        )}
       {effectiveMode === "local" && renderModelSelector("local")}
 
       {effectiveMode === "self-hosted" && (

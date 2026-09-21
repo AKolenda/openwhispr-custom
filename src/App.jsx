@@ -15,6 +15,8 @@ import { useMainProcessNotifications } from "./hooks/useMainProcessNotifications
 import { useListeningEntrancePhase } from "./hooks/useListeningEntrancePhase";
 import { useWindowResizeCompensation } from "./hooks/useWindowResizeCompensation";
 import { useSettingsStore } from "./stores/settingsStore";
+import { useEscapeCancellation, getEscapeCancellationEnabled } from "./hooks/useEscapeCancellation";
+import { shouldProtectDictationFromEscape } from "./services/escapeCancellationPreference";
 import { isAgentAllowed } from "./stores/policyRules";
 import { usePolicyStore } from "./stores/policyStore";
 import { useTranscriptionContextAllowed } from "./hooks/usePolicy";
@@ -75,6 +77,7 @@ export default function App() {
 
   // Floating icon auto-hide setting (read from store, synced via IPC)
   const floatingIconAutoHide = useSettingsStore((s) => s.floatingIconAutoHide);
+  const { enabled: escapeCancelsDictation } = useEscapeCancellation();
   const panelStartPosition = useSettingsStore((s) => s.panelStartPosition);
   const prevAutoHideRef = useRef(floatingIconAutoHide);
   const [voiceHorizontalDirection, setVoiceHorizontalDirection] = useState(() =>
@@ -374,7 +377,7 @@ export default function App() {
 
   useEffect(() => {
     const unsubscribe = window.electronAPI?.onCancelHotkeyPressed?.(() => {
-      if (isRecordingRef.current) cancelRecording();
+      if (getEscapeCancellationEnabled() && isRecordingRef.current) cancelRecording();
     });
     return () => unsubscribe?.();
   }, [cancelRecording]);
@@ -455,6 +458,15 @@ export default function App() {
         if (assistant.mounted) return;
         if (isCommandMenuOpen) {
           setIsCommandMenuOpen(false);
+        } else if (
+          shouldProtectDictationFromEscape(getEscapeCancellationEnabled(), {
+            isRecording,
+            isPreparing,
+            isProcessing,
+            isStopping,
+          })
+        ) {
+          return;
         } else if (isRecording) {
           cancelRecording();
         } else if (isPreparing) {
@@ -475,6 +487,7 @@ export default function App() {
     isRecording,
     isPreparing,
     isProcessing,
+    isStopping,
     cancelRecording,
     cancelProcessing,
   ]);
@@ -811,6 +824,12 @@ export default function App() {
       >
         {activeVoicePanelMode === "assistant" && assistant.mounted && (
           <AssistantPanel
+            protectDictationFromEscape={shouldProtectDictationFromEscape(escapeCancelsDictation, {
+              isRecording,
+              isPreparing,
+              isProcessing,
+              isStopping,
+            })}
             pendingCommand={assistant.pendingCommand}
             onCommandConsumed={assistant.handleCommandConsumed}
             onCommandDiscarded={assistant.handleCommandDiscarded}

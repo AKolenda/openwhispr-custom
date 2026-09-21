@@ -58,6 +58,8 @@ const MANUAL_COPY_FEEDBACK_MS = 1800;
 const AUTO_COPY_FEEDBACK_MS = 6000;
 
 interface AssistantPanelProps {
+  /** Escape must not close the panel while protected voice work is active. */
+  protectDictationFromEscape?: boolean;
   /** Voice command waiting to be sent into the conversation (consumed on mount and on change). */
   pendingCommand: AssistantCommand | null;
   onCommandConsumed: (id: number) => void;
@@ -85,6 +87,7 @@ interface AssistantPanelProps {
 const StableAssistantMarkdown = memo(MarkdownRenderer);
 
 export function AssistantPanel({
+  protectDictationFromEscape = false,
   pendingCommand,
   onCommandConsumed,
   onCommandDiscarded,
@@ -379,7 +382,7 @@ export function AssistantPanel({
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        if (voiceState === "listening") return;
+        if (protectDictationFromEscape || voiceState === "listening") return;
         if (isBusy) {
           streaming.cancelStream();
           // A hidden panel means the compact Beam circle owns the thinking
@@ -414,6 +417,7 @@ export function AssistantPanel({
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [
+    protectDictationFromEscape,
     voiceState,
     isBusy,
     streaming,

@@ -4,6 +4,8 @@
 
 <h1 align="center">OpenWhispr</h1>
 
+> This fork includes a [custom Windows build](CUSTOM-BUILD.md) with OpenRouter upstream-provider selection, optional Escape cancellation, and no built-in `OpenWhispr` dictionary entry.
+
 <p align="center">
   <a href="https://github.com/OpenWhispr/openwhispr/blob/main/LICENSE"><img src="https://img.shields.io/github/license/OpenWhispr/openwhispr?style=flat" alt="License" /></a>
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey?style=flat" alt="Platform" />

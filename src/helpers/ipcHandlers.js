@@ -9,6 +9,7 @@ const { ANALYTICS_HISTORY_BACKFILL_VERSION } = require("./analytics");
 const { PARAKEET_UNSUPPORTED_OS_CODE } = require("./parakeetCapability");
 const { getModelType, isSherpaLocalProvider } = require("./parakeetModelInfo");
 const { broadcastToWindows } = require("./windowBroadcast");
+const { createEscapeCancellationController } = require("./escapeCancellation");
 const { openExternalUrl } = require("./externalUrlOpener");
 const { resolveFailedGpuBackends } = require("./whisper");
 const { BYOK_API_KEYS } = require("../config/secretKeys");
@@ -4322,18 +4323,39 @@ class IPCHandlers {
       return this.windowManager.getHyprlandConfigStatus();
     });
 
-    ipcMain.handle("register-cancel-hotkey", async (event, key) => {
-      const hotkeyManager = this.windowManager.hotkeyManager;
-      const mainWindow = this.windowManager.mainWindow;
-      return hotkeyManager.registerSlot("cancel", key, () => {
-        mainWindow?.webContents?.send("cancel-hotkey-pressed");
+    // The same main-process owner gates global Escape in every application
+    // window. OFF releases the key to the focused app instead of swallowing it.
+    const escapeCancellation = createEscapeCancellationController({
+      fs,
+      filename: path.join(app.getPath("userData"), "dictation-escape.json"),
+      hotkeyManager: {
+        registerSlot: (...args) => this.windowManager.hotkeyManager.registerSlot(...args),
+        unregisterSlot: (...args) => this.windowManager.hotkeyManager.unregisterSlot(...args),
+      },
+      onChange: (enabled) => {
+        for (const window of BrowserWindow.getAllWindows()) {
+          if (!window.isDestroyed() && !window.webContents.isDestroyed()) {
+            window.webContents.send("escape-cancels-dictation-changed", enabled);
+          }
+        }
+      },
+      warn: (message) => debugLogger.warn(message),
+    });
+    ipcMain.handle("get-escape-cancels-dictation", () => escapeCancellation.getEnabled());
+    ipcMain.handle("set-escape-cancels-dictation", (_event, enabled) =>
+      escapeCancellation.setEnabled(enabled)
+    );
+
+    ipcMain.handle("register-cancel-hotkey", async (_event, key) => {
+      return escapeCancellation.request(key, () => {
+        const mainWindow = this.windowManager.mainWindow;
+        if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
+          mainWindow.webContents.send("cancel-hotkey-pressed");
+        }
       });
     });
 
-    ipcMain.handle("unregister-cancel-hotkey", async () => {
-      this.windowManager.hotkeyManager.unregisterSlot("cancel");
-      return { success: true };
-    });
+    ipcMain.handle("unregister-cancel-hotkey", async () => escapeCancellation.clear());
 
     ipcMain.handle("start-window-drag", async (event) => {
       return await this.windowManager.startWindowDrag();
