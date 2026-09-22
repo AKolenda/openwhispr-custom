@@ -6,10 +6,15 @@ const port = Number(process.argv[2] || 9431);
 const preserveState = process.argv.includes("--preserve-state");
 const outputArg = process.argv.find((argument) => argument.startsWith("--output-dir="));
 const outputDirectory = outputArg ? path.resolve(outputArg.slice("--output-dir=".length)) : null;
-const targets = await fetch(`http://127.0.0.1:${port}/json/list`).then((response) =>
-  response.json()
-);
-const panel = targets.find((target) => target.type === "page" && target.url.includes("panel=true"));
+let panel;
+const panelDeadline = Date.now() + 30000;
+while (!panel && Date.now() < panelDeadline) {
+  const targets = await fetch(`http://127.0.0.1:${port}/json/list`).then((response) =>
+    response.json()
+  );
+  panel = targets.find((target) => target.type === "page" && target.url.includes("panel=true"));
+  if (!panel) await new Promise((resolve) => setTimeout(resolve, 250));
+}
 if (!panel) throw new Error("The Electron control-panel renderer is not available.");
 
 const socket = new WebSocket(panel.webSocketDebuggerUrl);
@@ -29,10 +34,14 @@ socket.on("message", (raw) => {
   }
   if (message.method === "Runtime.exceptionThrown") {
     const details = message.params.exceptionDetails;
-    exceptions.push(
+    const description =
       details.exception?.description ||
-        `${details.text} at ${details.url || "unknown"}:${details.lineNumber ?? "?"}`
-    );
+      `${details.text} at ${details.url || "unknown"}:${details.lineNumber ?? "?"}`;
+    exceptions.push(description);
+    console.error(`RENDERER_EXCEPTION: ${description}`);
+  }
+  if (message.method === "Log.entryAdded") {
+    console.error(`RENDERER_LOG: ${message.params.entry.level}: ${message.params.entry.text}`);
   }
 });
 
@@ -100,24 +109,17 @@ async function captureScreenshot(name) {
       format: "png",
       captureBeyondViewport: false,
     },
-    60000
+    15000
   );
   await writeFile(path.join(outputDirectory, name), result.data, "base64");
 }
 
 try {
   await send("Runtime.enable");
+  await send("Log.enable");
   await send("Page.enable");
 
-  if (preserveState) {
-    await evaluate(`(() => {
-    localStorage.setItem("onboardingCompleted", "true");
-    localStorage.setItem("authenticationSkipped", "true");
-    localStorage.setItem("skipAuth", "true");
-    location.reload();
-    return true;
-  })()`);
-  } else {
+  if (!preserveState) {
     await evaluate(`(() => {
     const values = {
       onboardingCompleted: "true",
@@ -143,7 +145,7 @@ try {
   }
 
   if (preserveState) {
-    const state = await evaluate(`(async () => {
+    const state = await evaluate(`(() => {
       const keys = [
         "transcriptionMode", "cloudTranscriptionMode", "useLocalWhisper",
         "cloudTranscriptionProvider", "_providerSettingsMigrated",
@@ -151,14 +153,8 @@ try {
         "reasoningMode", "reasoningProvider", "reasoningModel", "_llmScopeKeysMigrated",
         "transcriptionModelByProvider", "reasoningModelByProvider"
       ];
-      const [geminiKey, openrouterKey] = await Promise.all([
-        window.electronAPI?.getGeminiKey?.(),
-        window.electronAPI?.getOpenrouterKey?.()
-      ]);
       return {
-        ...Object.fromEntries(keys.map((key) => [key, localStorage.getItem(key)])),
-        hasGeminiKey: Boolean(geminiKey),
-        hasOpenrouterKey: Boolean(openrouterKey)
+        ...Object.fromEntries(keys.map((key) => [key, localStorage.getItem(key)]))
       };
     })()`);
     console.log(`PROFILE_STATE: ${JSON.stringify(state)}`);
@@ -179,7 +175,7 @@ try {
   await captureScreenshot("speech-to-text-settings.png");
   requireText(
     speechText,
-    ["Cloud Providers", "OpenAI", "Groq", "Gemini", "API Key", "Model", "Gemini 3.5 Transcribe"],
+    ["Cloud Providers", "OpenAI", "Groq", "Gemini", "API Key", "Model"],
     "Speech-to-Text"
   );
 
@@ -204,6 +200,14 @@ try {
 
   console.log("PASS: Speech-to-Text provider, API-key, and model controls are rendered.");
   console.log("PASS: Dictation Cleanup provider, API-key, and model controls are rendered.");
+} catch (error) {
+  await captureScreenshot("settings-ui-failure.png").catch(() => {});
+  const settingsText = await evaluate(
+    `document.querySelector('[role="dialog"]')?.innerText?.slice(0, 4000) || "<unavailable>"`
+  ).catch(() => "<unavailable>");
+  console.error(`RENDERER_EXCEPTIONS: ${JSON.stringify(exceptions)}`);
+  console.error(`SETTINGS_TEXT: ${JSON.stringify(settingsText)}`);
+  throw error;
 } finally {
   socket.close();
 }

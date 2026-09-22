@@ -6,11 +6,11 @@ $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
 $Root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
-$InstallerName = 'OpenWhispr-1.10.2-upstream-escape-v4-x64-Setup.exe'
+$InstallerName = 'OpenWhispr-1.10.2-upstream-escape-v5-x64-Setup.exe'
 $Installer = Join-Path $Root "dist\$InstallerName"
 $Checksum = "$Installer.sha256"
 $Repository = 'AKolenda/openwhispr-custom'
-$ReleaseTag = 'custom-v1.10.2-r4'
+$ReleaseTag = 'custom-v1.10.2-r5'
 
 function Invoke-Checked([string]$Program, [string[]]$Arguments) {
   & $Program @Arguments
@@ -59,9 +59,17 @@ try {
 
     $env:OPENWHISPR_CHANNEL = 'production'
     $env:VITE_OPENWHISPR_CHANNEL = 'production'
+    if (-not $env:VITE_OPENWHISPR_API_URL) {
+      $env:VITE_OPENWHISPR_API_URL = 'https://api.openwhispr.com'
+    }
+    if (-not $env:VITE_AUTH_URL) {
+      $env:VITE_AUTH_URL = 'https://auth.openwhispr.com'
+    }
     $env:CSC_IDENTITY_AUTO_DISCOVERY = 'false'
     $env:BRAND_FONTS_REQUIRED = '0'
-    Set-Content -LiteralPath '.env' -Encoding utf8NoBOM -Value 'OPENWHISPR_CHANNEL=production'
+    if (-not (Test-Path -LiteralPath '.env')) {
+      Set-Content -LiteralPath '.env' -Encoding utf8NoBOM -Value 'OPENWHISPR_CHANNEL=production'
+    }
 
     Invoke-Checked 'npm.cmd' @('ci')
     Invoke-Checked 'node.exe' @('--import', 'tsx', '--test',
@@ -127,7 +135,7 @@ try {
         '--repo', $Repository, '--clobber')
     } else {
       Invoke-Checked 'gh.exe' @('release', 'create', $ReleaseTag, $Installer, $Checksum,
-        '--repo', $Repository, '--title', 'OpenWhispr 1.10.2 custom Windows build r4',
+        '--repo', $Repository, '--title', 'OpenWhispr 1.10.2 custom Windows build r5',
         '--notes-file', 'CUSTOM-BUILD.md')
     }
     Write-Host "Published: https://github.com/$Repository/releases/tag/$ReleaseTag"

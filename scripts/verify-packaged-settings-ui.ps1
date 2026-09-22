@@ -3,7 +3,8 @@
 param(
   [string]$AppPath,
   [int]$Port = 9431,
-  [string]$OutputDirectory
+  [string]$OutputDirectory,
+  [switch]$PreserveState
 )
 
 $ErrorActionPreference = 'Stop'
@@ -16,6 +17,27 @@ if (-not $OutputDirectory) {
   $OutputDirectory = Join-Path $Root 'dist\settings-ui-verification'
 }
 New-Item -ItemType Directory -Force -Path $OutputDirectory | Out-Null
+
+$appDirectory = Split-Path $AppPath
+$asarPath = Join-Path $appDirectory 'resources\app.asar'
+$asarCommand = Join-Path $Root 'node_modules\.bin\asar.cmd'
+if (-not (Test-Path -LiteralPath $asarPath) -or -not (Test-Path -LiteralPath $asarCommand)) {
+  throw 'Packaged app.asar or the asar reader is missing.'
+}
+$runtimeCheck = Join-Path $OutputDirectory 'runtime-env-check'
+New-Item -ItemType Directory -Force -Path $runtimeCheck | Out-Null
+Push-Location $runtimeCheck
+try {
+  & $asarCommand extract-file $asarPath 'src\dist\runtime-env.json'
+  if ($LASTEXITCODE -ne 0) { throw 'Could not read the packaged runtime environment.' }
+} finally {
+  Pop-Location
+}
+$runtimeEnv = Get-Content -LiteralPath (Join-Path $runtimeCheck 'runtime-env.json') -Raw | ConvertFrom-Json
+if ($runtimeEnv.VITE_OPENWHISPR_API_URL -ne 'https://api.openwhispr.com' -or
+    $runtimeEnv.VITE_AUTH_URL -ne 'https://auth.openwhispr.com') {
+  throw 'The packaged renderer is missing the official OpenWhispr API or authentication URL.'
+}
 
 $savedEnvironment = @{
   OPENWHISPR_UI_TEST = $env:OPENWHISPR_UI_TEST
@@ -53,8 +75,13 @@ try {
     throw "Packaged OpenWhispr did not expose its renderer on port $Port."
   }
 
-  & node.exe (Join-Path $Root 'scripts\verify-settings-ui.mjs') $Port `
+  $verifyArguments = @(
+    (Join-Path $Root 'scripts\verify-settings-ui.mjs'),
+    $Port,
     "--output-dir=$OutputDirectory"
+  )
+  if ($PreserveState) { $verifyArguments += '--preserve-state' }
+  & node.exe @verifyArguments
   if ($LASTEXITCODE -ne 0) {
     throw "Rendered Settings verification failed with exit code $LASTEXITCODE."
   }

@@ -1,6 +1,6 @@
 {
   "extends": "./electron-builder.json",
-  "artifactName": "OpenWhispr-1.10.2-upstream-escape-v4-${arch}-Setup.${ext}",
+  "artifactName": "OpenWhispr-1.10.2-upstream-escape-v5-${arch}-Setup.${ext}",
   "win": {
     "target": [
       {
@@ -14,6 +14,6 @@
     "deleteAppDataOnUninstall": false
   },
   "extraMetadata": {
-    "openwhisprCommunityBuild": "upstream-provider-picker-escape-dictionary-4"
+    "openwhisprCommunityBuild": "upstream-provider-picker-escape-dictionary-5"
   }
 }

@@ -90,10 +90,17 @@ jobs:
 
       - name: Create runtime env
         shell: bash
-        run: echo "OPENWHISPR_CHANNEL=production" > .env
+        run: |
+          echo "OPENWHISPR_CHANNEL=production" > .env
+          echo "GOOGLE_CALENDAR_CLIENT_ID=${{ secrets.GOOGLE_CALENDAR_CLIENT_ID }}" >> .env
+          echo "GOOGLE_CALENDAR_CLIENT_SECRET=${{ secrets.GOOGLE_CALENDAR_CLIENT_SECRET }}" >> .env
+          echo "MICROSOFT_CALENDAR_CLIENT_ID=${{ secrets.MICROSOFT_CALENDAR_CLIENT_ID }}" >> .env
 
       - name: Build renderer from this checkout
         shell: pwsh
+        env:
+          VITE_OPENWHISPR_API_URL: https://api.openwhispr.com
+          VITE_AUTH_URL: https://auth.openwhispr.com
         run: |
           if (Test-Path -LiteralPath "src/dist") {
             Remove-Item -LiteralPath "src/dist" -Recurse -Force
@@ -114,7 +121,7 @@ jobs:
       - name: Create checksum
         shell: pwsh
         run: |
-          $installer = Get-Item "dist/OpenWhispr-1.10.2-upstream-escape-v4-x64-Setup.exe"
+          $installer = Get-Item "dist/OpenWhispr-1.10.2-upstream-escape-v5-x64-Setup.exe"
           $hash = (Get-FileHash $installer -Algorithm SHA256).Hash.ToLowerInvariant()
           Set-Content -Encoding ascii "$($installer.FullName).sha256" "$hash  $($installer.Name)"
 
@@ -123,8 +130,8 @@ jobs:
         with:
           name: OpenWhispr-1.10.2-custom-Windows-x64
           path: |
-            dist/OpenWhispr-1.10.2-upstream-escape-v4-x64-Setup.exe
-            dist/OpenWhispr-1.10.2-upstream-escape-v4-x64-Setup.exe.sha256
+            dist/OpenWhispr-1.10.2-upstream-escape-v5-x64-Setup.exe
+            dist/OpenWhispr-1.10.2-upstream-escape-v5-x64-Setup.exe.sha256
           if-no-files-found: error
           retention-days: 30
 
@@ -133,14 +140,14 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $tag = "custom-v1.10.2-r4"
+          $tag = "custom-v1.10.2-r5"
           $files = @(
-            "dist/OpenWhispr-1.10.2-upstream-escape-v4-x64-Setup.exe",
-            "dist/OpenWhispr-1.10.2-upstream-escape-v4-x64-Setup.exe.sha256"
+            "dist/OpenWhispr-1.10.2-upstream-escape-v5-x64-Setup.exe",
+            "dist/OpenWhispr-1.10.2-upstream-escape-v5-x64-Setup.exe.sha256"
           )
           gh release view $tag 2>$null
           if ($LASTEXITCODE -eq 0) {
             gh release upload $tag @files --clobber
           } else {
-            gh release create $tag @files --title "OpenWhispr 1.10.2 custom Windows build r4" --notes-file CUSTOM-BUILD.md
+            gh release create $tag @files --title "OpenWhispr 1.10.2 custom Windows build r5" --notes-file CUSTOM-BUILD.md
           }
