@@ -97,7 +97,8 @@ try {
     Invoke-Checked 'cl.exe' @('/O2', '/nologo', 'resources\windows-mic-listener.c',
       '/Fe:resources\bin\windows-mic-listener.exe', 'ole32.lib', 'oleaut32.lib')
     Invoke-Checked 'npm.cmd' @('run', 'build:renderer')
-    Invoke-Checked 'npx.cmd' @('--no-install', 'electron-builder', '--win', '--x64',
+    Remove-Item -LiteralPath $Installer, $Checksum, "$Installer.blockmap" -Force -ErrorAction SilentlyContinue
+    Invoke-Checked 'npx.cmd' @('--no-install', 'electron-builder', '--win', 'nsis', '--x64',
       '--publish', 'never', '--config', 'electron-builder.routing-win.json')
 
     if (-not (Test-Path -LiteralPath $Installer)) {

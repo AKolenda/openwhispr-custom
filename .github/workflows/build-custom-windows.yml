@@ -93,7 +93,7 @@ jobs:
         run: echo "OPENWHISPR_CHANNEL=production" > .env
 
       - name: Build unsigned installer
-        run: npm run build:win -- --x64 --publish never --config electron-builder.routing-win.json
+        run: npx electron-builder --win nsis --x64 --publish never --config electron-builder.routing-win.json
         env:
           GITHUB_TOKEN: ${{ github.token }}
           GH_TOKEN: ${{ github.token }}
