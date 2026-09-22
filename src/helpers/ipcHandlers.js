@@ -7430,7 +7430,6 @@ class IPCHandlers {
     let meetingReconnectAudioBytes = { mic: 0, system: 0 };
     let meetingReconnectReplaySources = new Set();
 
-    const fs = require("fs");
     let meetingDiarizationStream = null;
     let meetingDiarizationPath = null;
     let meetingDiarizationStartedAt = null;
