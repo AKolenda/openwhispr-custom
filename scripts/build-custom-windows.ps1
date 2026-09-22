@@ -6,11 +6,11 @@ $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
 $Root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
-$InstallerName = 'OpenWhispr-1.10.2-upstream-escape-v3-x64-Setup.exe'
+$InstallerName = 'OpenWhispr-1.10.2-upstream-escape-v4-x64-Setup.exe'
 $Installer = Join-Path $Root "dist\$InstallerName"
 $Checksum = "$Installer.sha256"
 $Repository = 'AKolenda/openwhispr-custom'
-$ReleaseTag = 'custom-v1.10.2-r3'
+$ReleaseTag = 'custom-v1.10.2-r4'
 
 function Invoke-Checked([string]$Program, [string[]]$Arguments) {
   & $Program @Arguments
@@ -96,6 +96,11 @@ try {
     New-Item -ItemType Directory -Force -Path 'resources/bin' | Out-Null
     Invoke-Checked 'cl.exe' @('/O2', '/nologo', 'resources\windows-mic-listener.c',
       '/Fe:resources\bin\windows-mic-listener.exe', 'ole32.lib', 'oleaut32.lib')
+    $rendererOutput = Join-Path $Root 'src\dist'
+    if (-not $rendererOutput.StartsWith($Root, [System.StringComparison]::OrdinalIgnoreCase)) {
+      throw "Refusing to clean renderer output outside the repository: $rendererOutput"
+    }
+    Remove-Item -LiteralPath $rendererOutput -Recurse -Force -ErrorAction SilentlyContinue
     Invoke-Checked 'npm.cmd' @('run', 'build:renderer')
     Remove-Item -LiteralPath $Installer, $Checksum, "$Installer.blockmap" -Force -ErrorAction SilentlyContinue
     Invoke-Checked 'npx.cmd' @('--no-install', 'electron-builder', '--win', 'nsis', '--x64',
@@ -104,6 +109,8 @@ try {
     if (-not (Test-Path -LiteralPath $Installer)) {
       throw "Expected installer was not created: $Installer"
     }
+    Invoke-Checked 'pwsh.exe' @('-NoProfile', '-File',
+      'scripts\verify-packaged-settings-ui.ps1')
     $hash = (Get-FileHash -LiteralPath $Installer -Algorithm SHA256).Hash.ToLowerInvariant()
     Set-Content -LiteralPath $Checksum -Encoding ascii -Value "$hash  $InstallerName"
     Write-Host "Built and verified: $Installer"
@@ -120,7 +127,7 @@ try {
         '--repo', $Repository, '--clobber')
     } else {
       Invoke-Checked 'gh.exe' @('release', 'create', $ReleaseTag, $Installer, $Checksum,
-        '--repo', $Repository, '--title', 'OpenWhispr 1.10.2 custom Windows build r3',
+        '--repo', $Repository, '--title', 'OpenWhispr 1.10.2 custom Windows build r4',
         '--notes-file', 'CUSTOM-BUILD.md')
     }
     Write-Host "Published: https://github.com/$Repository/releases/tag/$ReleaseTag"

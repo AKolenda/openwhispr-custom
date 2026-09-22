@@ -1646,6 +1646,7 @@ class WindowManager {
     // Cancel the backstop either way: once the window has been shown on purpose,
     // a later timer firing could pull it back out of the tray.
     this._clearControlPanelVisibilityTimer();
+    if (process.env.OPENWHISPR_UI_TEST === "1") return;
     if (win.isVisible()) return;
     win.show();
     win.focus();
