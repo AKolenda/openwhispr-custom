@@ -1,7 +1,10 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const load = () => import("../../src/helpers/agentNameDictionary.js");
+const load = async () => {
+  const loaded = await import("../../src/helpers/agentNameDictionary.js");
+  return loaded.agentNameDictionaryChangesWithoutDefault ? loaded : loaded.default;
+};
 
 test("removes the built-in OpenWhispr name instead of adding it", async () => {
   const { agentNameDictionaryChangesWithoutDefault } = await load();
