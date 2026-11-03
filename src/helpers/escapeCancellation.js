@@ -149,4 +149,4 @@ function createEscapeCancellationController({
   };
 }
 
-module.exports = { createEscapeCancellationController, isPlainEscape };
+module.exports = { createEscapeCancellationController };
