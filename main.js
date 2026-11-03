@@ -235,10 +235,7 @@ if (!protocolRegistered) {
   console.warn(`[Auth] Failed to register ${OAUTH_PROTOCOL}:// protocol handler`);
 }
 
-// UI verification runs beside the user's installed production copy with an
-// isolated profile. Skip the shared app-name lock only for that test process.
-const gotSingleInstanceLock =
-  process.env.OPENWHISPR_UI_TEST === "1" || app.requestSingleInstanceLock();
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
 
 if (!gotSingleInstanceLock) {
   app.exit(0);
@@ -1089,7 +1086,7 @@ async function startApp() {
       }
     }
   }
-  if (!startMinimized || process.env.OPENWHISPR_UI_TEST === "1") {
+  if (!startMinimized) {
     await windowManager.createControlPanelWindow();
   }
 

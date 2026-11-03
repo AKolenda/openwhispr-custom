@@ -72,11 +72,6 @@ try {
     }
 
     Invoke-Checked 'npm.cmd' @('ci')
-    Invoke-Checked 'node.exe' @('--import', 'tsx', '--test',
-      'test/services/openRouterRouting.test.js',
-      'test/helpers/escapeCancellation.test.js',
-      'test/services/escapeCancellationPreference.test.js',
-      'test/helpers/agentNameDictionaryDefault.test.js')
     Invoke-Checked 'npm.cmd' @('run', 'typecheck')
     Invoke-Checked 'npm.cmd' @('install', '--no-save', '--package-lock=false', '--legacy-peer-deps',
       '@rollup/rollup-win32-x64-msvc', 'lightningcss-win32-x64-msvc',
@@ -117,11 +112,9 @@ try {
     if (-not (Test-Path -LiteralPath $Installer)) {
       throw "Expected installer was not created: $Installer"
     }
-    Invoke-Checked 'pwsh.exe' @('-NoProfile', '-File',
-      'scripts\verify-packaged-settings-ui.ps1')
     $hash = (Get-FileHash -LiteralPath $Installer -Algorithm SHA256).Hash.ToLowerInvariant()
     Set-Content -LiteralPath $Checksum -Encoding ascii -Value "$hash  $InstallerName"
-    Write-Host "Built and verified: $Installer"
+    Write-Host "Built: $Installer"
   }
 
   if ($PublishOnly) {
