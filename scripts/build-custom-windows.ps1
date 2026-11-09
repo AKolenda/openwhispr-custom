@@ -6,11 +6,11 @@ $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
 $Root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
-$InstallerName = 'OpenWhispr-1.10.2-upstream-escape-v6-x64-Setup.exe'
+$InstallerName = 'OpenWhispr-1.10.2-upstream-escape-v7-x64-Setup.exe'
 $Installer = Join-Path $Root "dist\$InstallerName"
 $Checksum = "$Installer.sha256"
 $Repository = 'AKolenda/openwhispr-custom'
-$ReleaseTag = 'custom-v1.10.2-r6'
+$ReleaseTag = 'custom-v1.10.2-r7'
 
 function Invoke-Checked([string]$Program, [string[]]$Arguments) {
   & $Program @Arguments
@@ -128,7 +128,7 @@ try {
         '--repo', $Repository, '--clobber')
     } else {
       Invoke-Checked 'gh.exe' @('release', 'create', $ReleaseTag, $Installer, $Checksum,
-        '--repo', $Repository, '--title', 'OpenWhispr 1.10.2 custom Windows build r6',
+        '--repo', $Repository, '--title', 'OpenWhispr 1.10.2 custom Windows build r7',
         '--notes-file', 'CUSTOM-BUILD.md')
     }
     Write-Host "Published: https://github.com/$Repository/releases/tag/$ReleaseTag"
