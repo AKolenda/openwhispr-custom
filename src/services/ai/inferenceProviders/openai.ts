@@ -1,4 +1,5 @@
 import type { InferenceProvider } from "./types";
+import { hedgedFetch } from "../hedgedFetch";
 import { API_ENDPOINTS, TOKEN_LIMITS, buildApiUrl } from "../../../config/constants";
 import { getCloudModel, getOpenAiApiConfig } from "../../../models/ModelRegistry";
 import { getSettings } from "../../../stores/settingsStore";
@@ -273,18 +274,25 @@ export const openaiProvider: InferenceProvider = {
             });
           }
 
+          const send = (body: string, signal: AbortSignal) =>
+            fetch(endpoint, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
+                ...openCodeHeaders,
+              },
+              body,
+              signal,
+            });
+          // A dictation is pasted only once its cleanup answers, so a stalled host is raced by another.
+          const hedge =
+            isOpenRouter && type === "chat" && config.inferenceScope === "dictationCleanup";
           const res = await fetchWithParamFallback(
             () =>
-              fetch(endpoint, {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
-                  ...openCodeHeaders,
-                },
-                body: JSON.stringify(requestBody),
-                signal: controller.signal,
-              }),
+              hedge
+                ? hedgedFetch(send, requestBody, controller.signal)
+                : send(JSON.stringify(requestBody), controller.signal),
             requestBody,
             (details) => logger.logReasoning("OPENAI_PARAM_FALLBACK", { endpoint, ...details })
           );

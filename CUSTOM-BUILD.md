@@ -10,6 +10,8 @@ Revision 5 restores the official OpenWhispr API and authentication endpoints tha
 
 Revision 6 adds Grok STT streaming: with xAI as the dictation provider on your own key, dictation streams to xAI while you speak and the text is ready about 0.2 s after you stop, with the live preview updating about every half second (see "Custom Linux build" below).
 
+Revision 7 races a stalled dictation cleanup: when an OpenRouter cleanup hasn't answered after 1.2 s, the same request goes to the fastest other host and the first answer is used, so one slow host no longer holds the dictation for up to the 30 s deadline.
+
 The build keeps the official application ID, product name, production profile path, and Windows Credential Manager service. Install it over the existing copy under the same Windows account. Do not uninstall OpenWhispr or delete `%APPDATA%\open-whispr` first.
 
 The installer is unsigned. Windows displays an unknown-publisher warning. The workflow builds it from the public source in this repository and publishes a SHA-256 file beside the EXE.
