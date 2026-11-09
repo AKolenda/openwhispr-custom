@@ -115,7 +115,7 @@ jobs:
       - name: Create checksum
         shell: pwsh
         run: |
-          $installer = Get-Item "dist/OpenWhispr-1.10.2-upstream-escape-v5-x64-Setup.exe"
+          $installer = Get-Item "dist/OpenWhispr-1.10.2-upstream-escape-v6-x64-Setup.exe"
           $hash = (Get-FileHash $installer -Algorithm SHA256).Hash.ToLowerInvariant()
           Set-Content -Encoding ascii "$($installer.FullName).sha256" "$hash  $($installer.Name)"
 
@@ -124,8 +124,8 @@ jobs:
         with:
           name: OpenWhispr-1.10.2-custom-Windows-x64
           path: |
-            dist/OpenWhispr-1.10.2-upstream-escape-v5-x64-Setup.exe
-            dist/OpenWhispr-1.10.2-upstream-escape-v5-x64-Setup.exe.sha256
+            dist/OpenWhispr-1.10.2-upstream-escape-v6-x64-Setup.exe
+            dist/OpenWhispr-1.10.2-upstream-escape-v6-x64-Setup.exe.sha256
           if-no-files-found: error
           retention-days: 30
 
@@ -134,14 +134,14 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $tag = "custom-v1.10.2-r5"
+          $tag = "custom-v1.10.2-r6"
           $files = @(
-            "dist/OpenWhispr-1.10.2-upstream-escape-v5-x64-Setup.exe",
-            "dist/OpenWhispr-1.10.2-upstream-escape-v5-x64-Setup.exe.sha256"
+            "dist/OpenWhispr-1.10.2-upstream-escape-v6-x64-Setup.exe",
+            "dist/OpenWhispr-1.10.2-upstream-escape-v6-x64-Setup.exe.sha256"
           )
           gh release view $tag 2>$null
           if ($LASTEXITCODE -eq 0) {
             gh release upload $tag @files --clobber
           } else {
-            gh release create $tag @files --title "OpenWhispr 1.10.2 custom Windows build r5" --notes-file CUSTOM-BUILD.md
+            gh release create $tag @files --title "OpenWhispr 1.10.2 custom Windows build r6" --notes-file CUSTOM-BUILD.md
           }
