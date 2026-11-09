@@ -64,9 +64,6 @@ export async function hedgedFetch(
 ): Promise<Response> {
   if (isStrictOpenRouterRouting(body)) return send(JSON.stringify(body), signal);
   const controllers = [new AbortController(), new AbortController()];
-  const abortAll = () => controllers.forEach((c) => c.abort());
-  if (signal.aborted) abortAll();
-  else signal.addEventListener("abort", abortAll, { once: true });
 
   const attempt = async (payload: Body, controller: AbortController): Promise<Outcome> => {
     const res = await send(JSON.stringify(payload), controller.signal);
@@ -86,21 +83,29 @@ export async function hedgedFetch(
     let hedgeStarted = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
 
-    const finish = (winner: number, response: Response) => {
-      if (settled) return;
+    // Ends the race: no later answer can resolve it, and every request still running is aborted.
+    const settle = (winner: number | null) => {
       settled = true;
       if (timer) clearTimeout(timer);
-      signal.removeEventListener("abort", abortAll);
+      signal.removeEventListener("abort", onAbort);
       controllers.forEach((c, i) => i !== winner && c.abort());
+    };
+    // The caller's deadline or cancel wins at once, whatever either request has answered or is still doing.
+    const onAbort = () => {
+      if (settled) return;
+      settle(null);
+      reject(signal.reason ?? new DOMException("The operation was aborted.", "AbortError"));
+    };
+    const finish = (winner: number, response: Response) => {
+      if (settled) return;
+      settle(winner);
       resolve(response);
     };
     const fail = () => {
       if (settled) return;
       // Both have answered without success: hand back the primary's answer or error.
       if (primary instanceof Error) {
-        settled = true;
-        if (timer) clearTimeout(timer);
-        signal.removeEventListener("abort", abortAll);
+        settle(null);
         reject(primary);
       } else if (primary) {
         finish(0, primary.response);
@@ -115,20 +120,18 @@ export async function hedgedFetch(
           if (outcome.ok) finish(1, outcome.response);
           else if (primary) fail();
         },
-        (error: Error) => {
+        () => {
           hedgeDone = true;
-          if (signal.aborted) {
-            // The caller's deadline or cancel: report that, not the primary's earlier failure.
-            if (!settled) {
-              settled = true;
-              if (timer) clearTimeout(timer);
-              reject(error);
-            }
-          } else if (primary) fail();
+          if (primary) fail();
         }
       );
     };
 
+    if (signal.aborted) {
+      onAbort();
+      return;
+    }
+    signal.addEventListener("abort", onAbort, { once: true });
     attempt(body, controllers[0]).then(
       (outcome) => {
         primary = outcome;
@@ -138,11 +141,7 @@ export async function hedgedFetch(
       },
       (error: Error) => {
         primary = error;
-        if (signal.aborted) {
-          settled = true;
-          if (timer) clearTimeout(timer);
-          reject(error);
-        } else if (!hedgeStarted) startHedge();
+        if (!hedgeStarted) startHedge();
         else if (hedgeDone) fail();
       }
     );
