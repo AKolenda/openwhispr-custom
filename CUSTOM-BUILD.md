@@ -8,6 +8,8 @@ This unsigned OpenWhispr 1.10.2 build adds three changes:
 
 Revision 5 restores the official OpenWhispr API and authentication endpoints that were missing from revision 4.
 
+Revision 6 adds Grok STT streaming: with xAI as the dictation provider on your own key, dictation streams to xAI while you speak and the text is ready about 0.2 s after you stop, with the live preview updating about every half second (see "Custom Linux build" below).
+
 The build keeps the official application ID, product name, production profile path, and Windows Credential Manager service. Install it over the existing copy under the same Windows account. Do not uninstall OpenWhispr or delete `%APPDATA%\open-whispr` first.
 
 The installer is unsigned. Windows displays an unknown-publisher warning. The workflow builds it from the public source in this repository and publishes a SHA-256 file beside the EXE.
