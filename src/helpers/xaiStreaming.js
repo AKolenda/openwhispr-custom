@@ -86,7 +86,13 @@ class XaiStreaming {
   }
 
   static buildUrl({ language, keyterms } = {}) {
-    const params = new URLSearchParams({ encoding: "pcm", sample_rate: String(SAMPLE_RATE) });
+    // interim_results makes xAI send its running guess about every 500 ms, so the live preview follows the speaker
+    // word by word; without it, text only arrives as each chunk is finalized, every few seconds.
+    const params = new URLSearchParams({
+      encoding: "pcm",
+      sample_rate: String(SAMPLE_RATE),
+      interim_results: "true",
+    });
     if (language) {
       params.set("language", language);
       params.set("format", "true");
