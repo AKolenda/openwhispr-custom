@@ -10,16 +10,22 @@ export const HEDGE_DELAY_MS = 1200;
 
 type Body = Record<string, unknown>;
 
-/** The same request, sent to the highest-throughput host other than the ones it pinned. */
+/**
+ * The same request, sent to the highest-throughput host other than the ones it pinned. Every other provider
+ * preference (price ceilings, data policy, quantizations) is kept, so the hedge never goes where the first request
+ * wasn't allowed to.
+ */
 export function hedgeOpenRouterBody(body: Body): Body {
   const provider = (
     body.provider && typeof body.provider === "object" ? body.provider : {}
   ) as Body;
-  const pinned = [provider.order, provider.only]
+  const { order, only, allow_fallbacks: _fallbacks, sort: _sort, ignore, ...kept } = provider;
+  const pinned = [order, only]
     .flatMap((list) => (Array.isArray(list) ? list : []))
     .filter((slug): slug is string => typeof slug === "string" && slug.length > 0);
-  const hedge: Body = { sort: "throughput" };
-  if (pinned.length) hedge.ignore = pinned;
+  const ignored = [...(Array.isArray(ignore) ? ignore : []), ...pinned];
+  const hedge: Body = { ...kept, sort: "throughput" };
+  if (ignored.length) hedge.ignore = [...new Set(ignored)];
   return { ...body, provider: hedge };
 }
 
@@ -77,6 +83,7 @@ export async function hedgedFetch(
       // Both have answered without success: hand back the primary's answer or error.
       if (primary instanceof Error) {
         settled = true;
+        if (timer) clearTimeout(timer);
         signal.removeEventListener("abort", abortAll);
         reject(primary);
       } else if (primary) {
