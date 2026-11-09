@@ -390,6 +390,22 @@ const STREAMING_PROVIDERS = {
     onSessionEnd: (cb) => window.electronAPI.onAssemblyAiSessionEnd(cb),
   },
   "openai-realtime": makeDictationRealtimeProvider("openai-realtime"),
+  xai: {
+    // The client in main sends audio.done and resolves once xAI has settled the
+    // last words (about 0.1-0.2 s), so stop waits on that instead of a fixed or
+    // quiet-period delay; it gives up after 2.5 s and the batch upload of the
+    // fallback recording takes over when nothing settled.
+    finalizeAndWait: () => window.electronAPI.xaiStreamingFinalize(),
+    warmup: (opts) => window.electronAPI.xaiStreamingWarmup(opts),
+    start: (opts) => window.electronAPI.xaiStreamingStart(opts),
+    send: (buf) => window.electronAPI.xaiStreamingSend(buf),
+    stop: () => window.electronAPI.xaiStreamingStop(),
+    status: () => window.electronAPI.xaiStreamingStatus(),
+    onPartial: (cb) => window.electronAPI.onXaiPartialTranscript(cb),
+    onFinal: (cb) => window.electronAPI.onXaiFinalTranscript(cb),
+    onError: (cb) => window.electronAPI.onXaiError(cb),
+    onSessionEnd: (cb) => window.electronAPI.onXaiSessionEnd(cb),
+  },
   gemini: {
     // The final transcript lands ~500ms after audioStreamEnd (which finalize
     // sends), ~2s at the p95 tail, so the stop sequence waits for it under a
@@ -4195,6 +4211,12 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       return !!(isSignedInOverride ?? s.isSignedIn);
     }
 
+    // xAI (BYOK) streams Grok STT while the user speaks; the batch upload stays
+    // the fallback when the stream says nothing.
+    if (s.cloudTranscriptionProvider === "xai" && s.cloudTranscriptionMode === "byok") {
+      return !!getTranscriptionApiKey("xai", s);
+    }
+
     // Realtime-only providers (BYOK) stream over their own WSS and have no batch
     // endpoint at all — transcriptionRoute fails those closed — so gate on the
     // key instead of letting them fall through to the HTTP path.
@@ -4990,10 +5012,20 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     // 3. Finalize tells the provider to process any buffered audio and send final results.
     //    Wait for the transcript to settle before disconnecting.
     const provider = this.getStreamingProvider();
-    provider.finalize?.();
-    if (provider.awaitsFinalTranscript) {
+    if (provider.finalizeAndWait) {
+      const settled = await provider.finalizeAndWait().catch((e) => {
+        logger.debug("Streaming finalize failed", { error: e.message }, "streaming");
+        return null;
+      });
+      if (settled?.text) {
+        this.streamingFinalText = settled.text;
+        this.streamingPartialText = "";
+      }
+    } else if (provider.awaitsFinalTranscript) {
+      provider.finalize?.();
       await this.awaitStreamingTextSettled(provider.finalCeilingMs);
     } else {
+      provider.finalize?.();
       await new Promise((resolve) => setTimeout(resolve, 300));
     }
     if (wasCancelled()) return abandonFinalization();

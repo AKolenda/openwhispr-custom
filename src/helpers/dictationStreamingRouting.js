@@ -27,6 +27,14 @@ export function resolveStreamingProviderName({ settings, context, sttConfig }) {
   ) {
     return "corti";
   }
+  // Notes and meetings have no xAI streaming client, so only dictation routes there.
+  if (
+    context === "dictation" &&
+    settings.cloudTranscriptionProvider === "xai" &&
+    settings.cloudTranscriptionMode === "byok"
+  ) {
+    return "xai";
+  }
   if (
     settings.cloudTranscriptionProvider === "gemini" &&
     settings.cloudTranscriptionModel === GEMINI_LIVE_MODEL
