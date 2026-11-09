@@ -5012,9 +5012,10 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     // 3. Finalize tells the provider to process any buffered audio and send final results.
     //    Wait for the transcript to settle before disconnecting.
     const provider = this.getStreamingProvider();
-    // Text from a stream that ended without its final answer: possibly missing
-    // its last words, so the recording is transcribed instead and this is only
-    // used when that can't run.
+    // A stream that ended without its final answer may be missing its last
+    // words, so the recording is transcribed instead; its text is used only
+    // when that can't run (decided below, once the stop result is in).
+    let streamIncomplete = false;
     let incompleteStreamText = "";
     if (provider.finalizeAndWait) {
       const settled = await provider.finalizeAndWait().catch((e) => {
@@ -5023,11 +5024,11 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       });
       if (settled?.complete) {
         if (settled.text) this.streamingFinalText = settled.text;
+        this.streamingPartialText = "";
       } else {
-        incompleteStreamText = settled?.text || this.streamingFinalText || "";
-        this.streamingFinalText = "";
+        streamIncomplete = true;
+        incompleteStreamText = settled?.text || "";
       }
-      this.streamingPartialText = "";
     } else if (provider.awaitsFinalTranscript) {
       provider.finalize?.();
       await this.awaitStreamingTextSettled(provider.finalCeilingMs);
@@ -5062,6 +5063,23 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
 
     this.cleanupStreamingListeners(sessionId);
     if (wasCancelled()) return true;
+
+    if (streamIncomplete) {
+      const recovered = incompleteStreamText || finalText;
+      const canTranscribeRecording =
+        durationSeconds > 2 &&
+        fallbackBlob?.size > 0 &&
+        resolveStreamingFallbackTarget(getSettings()) !== "skip";
+      // When the recording can't be transcribed, the stream's words go through
+      // cleanup like any streamed text; otherwise they wait as the last resort.
+      finalText = canTranscribeRecording ? "" : recovered;
+      incompleteStreamText = canTranscribeRecording ? recovered : "";
+      logger.info(
+        "Streaming ended incomplete",
+        { textLength: recovered.length, canTranscribeRecording },
+        "streaming"
+      );
+    }
 
     logger.info(
       "Streaming stop timing",
@@ -5288,6 +5306,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         }
       }
     }
+    // The stream and the recording's transcription both failed: raw words beat none.
     if (!finalText && incompleteStreamText) finalText = incompleteStreamText;
 
     if (finalText) {
