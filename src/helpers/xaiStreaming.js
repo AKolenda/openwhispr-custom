@@ -203,8 +203,8 @@ class XaiStreaming {
 
   /**
    * No more audio: the server transcribes what is left and answers. Resolves
-   * with the whole text once it has, or with what had settled when the stream
-   * failed or took longer than FINISH_TIMEOUT_MS.
+   * with the whole text once it has, or with what had been finalized (and
+   * complete: false) when the stream failed or took longer than FINISH_TIMEOUT_MS.
    */
   finish() {
     if (!this.ws) return Promise.resolve(this.result());
@@ -229,7 +229,9 @@ class XaiStreaming {
 
   result() {
     return {
-      text: this.done ? this.text.text() : this.text.settled(),
+      // Finalized chunks after the last utterance are kept, so a stream cut
+      // short still returns every word it settled.
+      text: this.text.text(),
       complete: this.done,
       model: "grok-stt",
       audioBytesSent: this.audioBytesSent,
@@ -297,7 +299,7 @@ class XaiStreaming {
     this.failed = null;
   }
 
-  /** Drops the session. Returns what had settled. */
+  /** Drops the session. Returns what had been finalized. */
   disconnect() {
     const result = this.result();
     this.settleWaiters();

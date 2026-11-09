@@ -5012,15 +5012,22 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     // 3. Finalize tells the provider to process any buffered audio and send final results.
     //    Wait for the transcript to settle before disconnecting.
     const provider = this.getStreamingProvider();
+    // Text from a stream that ended without its final answer: possibly missing
+    // its last words, so the recording is transcribed instead and this is only
+    // used when that can't run.
+    let incompleteStreamText = "";
     if (provider.finalizeAndWait) {
       const settled = await provider.finalizeAndWait().catch((e) => {
         logger.debug("Streaming finalize failed", { error: e.message }, "streaming");
         return null;
       });
-      if (settled?.text) {
-        this.streamingFinalText = settled.text;
-        this.streamingPartialText = "";
+      if (settled?.complete) {
+        if (settled.text) this.streamingFinalText = settled.text;
+      } else {
+        incompleteStreamText = settled?.text || this.streamingFinalText || "";
+        this.streamingFinalText = "";
       }
+      this.streamingPartialText = "";
     } else if (provider.awaitsFinalTranscript) {
       provider.finalize?.();
       await this.awaitStreamingTextSettled(provider.finalCeilingMs);
@@ -5281,6 +5288,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         }
       }
     }
+    if (!finalText && incompleteStreamText) finalText = incompleteStreamText;
 
     if (finalText) {
       // The batch fallback routes through processTranscription, which already
