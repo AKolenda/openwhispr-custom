@@ -5065,7 +5065,9 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     if (wasCancelled()) return true;
 
     if (streamIncomplete) {
-      const recovered = incompleteStreamText || finalText;
+      // Only words the provider finalized: the preview's running guess (streamingPartialText) may still change, so it
+      // is never inserted.
+      const recovered = incompleteStreamText || stopResult?.text || "";
       const canTranscribeRecording =
         durationSeconds > 2 &&
         fallbackBlob?.size > 0 &&
