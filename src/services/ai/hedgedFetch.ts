@@ -29,6 +29,19 @@ export function hedgeOpenRouterBody(body: Body): Body {
   return { ...body, provider: hedge };
 }
 
+/**
+ * True when the request may only go to the hosts it names (`only`, or fallbacks turned off): routing settings promise
+ * that cleanup then fails rather than switching hosts, so it is never hedged.
+ */
+export function isStrictOpenRouterRouting(body: Body): boolean {
+  const provider = (
+    body.provider && typeof body.provider === "object" ? body.provider : {}
+  ) as Body;
+  return (
+    (Array.isArray(provider.only) && provider.only.length > 0) || provider.allow_fallbacks === false
+  );
+}
+
 interface Outcome {
   ok: boolean;
   response: Response;
@@ -39,7 +52,9 @@ interface Outcome {
  * sends the hedged body too. Resolves with the first 2xx answer (its body already
  * read, so a host that sends headers early and stalls doesn't win), or, when both
  * fail, with the first request's answer so the caller's error handling sees it.
- * Aborting [signal] aborts both.
+ * Aborting [signal] aborts both and rejects with the abort, whatever the first
+ * request answered. Strict routing ([isStrictOpenRouterRouting]) is sent once,
+ * unhedged.
  */
 export async function hedgedFetch(
   send: (body: string, signal: AbortSignal) => Promise<Response>,
@@ -47,6 +62,7 @@ export async function hedgedFetch(
   signal: AbortSignal,
   delayMs = HEDGE_DELAY_MS
 ): Promise<Response> {
+  if (isStrictOpenRouterRouting(body)) return send(JSON.stringify(body), signal);
   const controllers = [new AbortController(), new AbortController()];
   const abortAll = () => controllers.forEach((c) => c.abort());
   if (signal.aborted) abortAll();
@@ -99,9 +115,16 @@ export async function hedgedFetch(
           if (outcome.ok) finish(1, outcome.response);
           else if (primary) fail();
         },
-        () => {
+        (error: Error) => {
           hedgeDone = true;
-          if (primary) fail();
+          if (signal.aborted) {
+            // The caller's deadline or cancel: report that, not the primary's earlier failure.
+            if (!settled) {
+              settled = true;
+              if (timer) clearTimeout(timer);
+              reject(error);
+            }
+          } else if (primary) fail();
         }
       );
     };
