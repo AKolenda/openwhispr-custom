@@ -1,0 +1,10 @@
+{
+  "extends": "./electron-builder.json",
+  "artifactName": "OpenWhispr-1.10.2-custom-xai-stream-${arch}.${ext}",
+  "linux": {
+    "target": [{ "target": "deb", "arch": ["x64"] }]
+  },
+  "extraMetadata": {
+    "openwhisprCommunityBuild": "upstream-provider-picker-escape-dictionary-xai-stream-1"
+  }
+}

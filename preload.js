@@ -814,6 +814,25 @@ contextBridge.exposeInMainWorld("electronAPI", {
   getReferralInvites: () => ipcRenderer.invoke("get-referral-invites"),
 
   // Assembly AI Streaming
+  xaiStreamingWarmup: (options) => ipcRenderer.invoke("xai-streaming-warmup", options),
+  xaiStreamingStart: (options) => ipcRenderer.invoke("xai-streaming-start", options),
+  xaiStreamingSend: (audioBuffer) => ipcRenderer.send("xai-streaming-send", audioBuffer),
+  xaiStreamingFinalize: () => ipcRenderer.invoke("xai-streaming-finalize"),
+  xaiStreamingStop: () => ipcRenderer.invoke("xai-streaming-stop"),
+  xaiStreamingStatus: () => ipcRenderer.invoke("xai-streaming-status"),
+  onXaiPartialTranscript: registerListener(
+    "xai-partial-transcript",
+    (callback) => (_event, text) => callback(text)
+  ),
+  onXaiFinalTranscript: registerListener(
+    "xai-final-transcript",
+    (callback) => (_event, text) => callback(text)
+  ),
+  onXaiError: registerListener("xai-error", (callback) => (_event, error) => callback(error)),
+  onXaiSessionEnd: registerListener(
+    "xai-session-end",
+    (callback) => (_event, data) => callback(data)
+  ),
   assemblyAiStreamingWarmup: (options) =>
     ipcRenderer.invoke("assemblyai-streaming-warmup", options),
   assemblyAiStreamingStart: (options) => ipcRenderer.invoke("assemblyai-streaming-start", options),

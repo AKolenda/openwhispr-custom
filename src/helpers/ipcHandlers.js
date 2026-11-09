@@ -84,6 +84,7 @@ const autoStart = require("./autoStart");
 const { getRelaunchOptions, getRelaunchWaiter } = require("./autoStartPolicy");
 const HyprlandShortcutManager = require("./hyprlandShortcut");
 const AssemblyAiStreaming = require("./assemblyAiStreaming");
+const XaiStreaming = require("./xaiStreaming");
 const { i18nMain, changeLanguage } = require("./i18nMain");
 const DeepgramStreaming = require("./deepgramStreaming");
 const { GeminiLiveStreaming, GEMINI_LIVE_MODEL } = require("./geminiLiveStreaming");
@@ -629,6 +630,7 @@ class IPCHandlers {
     // webContents id -> its release listener, for renderers holding the mic open.
     this._micHoldSenders = new Map();
     this.assemblyAiStreaming = null;
+    this.xaiStreaming = null;
     this.deepgramStreaming = null;
     this.geminiStreaming = null;
     this.cortiStreaming = null;
@@ -10595,6 +10597,82 @@ class IPCHandlers {
         return { success: false, error: error.message };
       }
     });
+
+    // xAI streams with the API key itself, so there is no token to fetch and no
+    // warm socket: start opens the session at once and holds the audio until the
+    // server is ready, which keeps the mic off the handshake's critical path.
+    const xaiStreamingLanguage = async (language) => {
+      const base = typeof language === "string" ? language.split("-")[0].toLowerCase() : "";
+      if (!base || base === "auto") return undefined;
+      const { XAI_STT_LANGUAGES } = await import("./transcriptionRoute.ts");
+      return XAI_STT_LANGUAGES.has(base) ? base : undefined;
+    };
+
+    ipcMain.handle("xai-streaming-warmup", async () => {
+      if (!this.environmentManager.getXaiKey()) {
+        return { success: false, error: "No xAI API key configured", code: "NO_API" };
+      }
+      return { success: true };
+    });
+
+    ipcMain.handle("xai-streaming-start", async (event, options = {}) => {
+      try {
+        const win = BrowserWindow.fromWebContents(event.sender);
+        this.xaiStreaming?.disconnect();
+        const client = new XaiStreaming();
+        this.xaiStreaming = client;
+        const forward = (channel) => (payload) => {
+          if (this.xaiStreaming !== client) return;
+          if (win && !win.isDestroyed()) win.webContents.send(channel, payload);
+        };
+        client.onPartialTranscript = forward("xai-partial-transcript");
+        client.onFinalTranscript = forward("xai-final-transcript");
+        client.onSessionEnd = forward("xai-session-end");
+        const forwardError = forward("xai-error");
+        client.onError = (error) => forwardError(error.message);
+        client.connect({
+          apiKey: this.environmentManager.getXaiKey(),
+          language: await xaiStreamingLanguage(options.language),
+          keyterms: options.keyterms,
+        });
+        debugLogger.debug("xAI streaming started", {}, "streaming");
+        return { success: true };
+      } catch (error) {
+        debugLogger.error("xAI streaming start error", { error: error.message });
+        return streamingStartFailure(error);
+      }
+    });
+
+    ipcMain.on("xai-streaming-send", (event, audioBuffer) => {
+      try {
+        this.xaiStreaming?.sendAudio(Buffer.from(audioBuffer));
+      } catch (error) {
+        debugLogger.error("xAI streaming send error", { error: error.message });
+      }
+    });
+
+    ipcMain.handle("xai-streaming-finalize", async () => {
+      if (!this.xaiStreaming) return { text: "", complete: false };
+      const started = Date.now();
+      const result = await this.xaiStreaming.finish();
+      debugLogger.debug(
+        "xAI streaming finalized",
+        { ms: Date.now() - started, complete: result.complete, error: result.error },
+        "streaming"
+      );
+      return result;
+    });
+
+    ipcMain.handle("xai-streaming-stop", async () => {
+      const client = this.xaiStreaming;
+      this.xaiStreaming = null;
+      const result = client ? client.disconnect() : { text: "" };
+      return { success: true, ...result };
+    });
+
+    ipcMain.handle("xai-streaming-status", async () =>
+      this.xaiStreaming ? this.xaiStreaming.getStatus() : { isConnected: false }
+    );
 
     ipcMain.handle("assemblyai-streaming-status", async () => {
       if (!this.assemblyAiStreaming) {
