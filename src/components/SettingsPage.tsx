@@ -157,6 +157,7 @@ import { formatAmount } from "../utils/formatAmount";
 import { enterpriseProviderName, getTranscriptionProvider } from "../models/ModelRegistry";
 import { useManagedScopeResolution } from "../stores/enterpriseIdentityStore";
 import { supportsLiveTranscriptionPreview } from "../utils/transcriptionPreview";
+import { REALTIME_MODELS } from "../helpers/dictationStreamingRouting";
 
 export type SettingsSectionType =
   | "account"
@@ -656,11 +657,16 @@ function TranscriptionSection({
     [localTranscriptionProvider, setParakeetModel, setCohereModel, setWhisperModel]
   );
 
-  const selectedCloudModelStreams = Boolean(
-    getTranscriptionProvider(cloudTranscriptionProvider)?.models.some(
-      (model) => model.id === cloudTranscriptionModel && model.streaming
-    )
-  );
+  // OpenAI dictation also streams GPT Transcribe, which the registry leaves off
+  // its streaming list so Note Recording keeps offering only the older models.
+  const selectedCloudModelStreams =
+    Boolean(
+      getTranscriptionProvider(cloudTranscriptionProvider)?.models.some(
+        (model) => model.id === cloudTranscriptionModel && model.streaming
+      )
+    ) ||
+    ((cloudTranscriptionProvider || "openai") === "openai" &&
+      REALTIME_MODELS.has(cloudTranscriptionModel));
   const previewAvailable = supportsLiveTranscriptionPreview(
     effectiveTranscriptionMode,
     selectedCloudModelStreams
