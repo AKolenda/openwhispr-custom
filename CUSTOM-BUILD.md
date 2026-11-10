@@ -12,6 +12,8 @@ Revision 6 adds Grok STT streaming: with xAI as the dictation provider on your o
 
 Revision 7 races a stalled dictation cleanup: when an OpenRouter cleanup hasn't answered after 1.2 s, the same request goes to the fastest other host and the first answer is used, so one slow host no longer holds the dictation for up to the 30 s deadline.
 
+Revision 8 streams GPT Transcribe live, so the OpenAI provider shows the live preview with its most accurate model, and tells OpenAI the dictation language on bring-your-own-key live sessions, which otherwise guessed it per phrase and could switch languages mid-dictation.
+
 The build keeps the official application ID, product name, production profile path, and Windows Credential Manager service. Install it over the existing copy under the same Windows account. Do not uninstall OpenWhispr or delete `%APPDATA%\open-whispr` first.
 
 The installer is unsigned. Windows displays an unknown-publisher warning. The workflow builds it from the public source in this repository and publishes a SHA-256 file beside the EXE.

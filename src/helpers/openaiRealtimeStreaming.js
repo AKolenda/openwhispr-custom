@@ -116,6 +116,7 @@ class OpenAIRealtimeStreaming {
       createSocket,
       streamLabel,
       vadThreshold,
+      language,
     } = options;
     if (!apiKey) throw new Error(`${this.providerLabel} API key is required`);
 
@@ -135,6 +136,10 @@ class OpenAIRealtimeStreaming {
     this.captureRate = captureRate || this.inputRate;
     this.streamLabel = streamLabel || null;
     this.vadThreshold = vadThreshold ?? DEFAULT_VAD_THRESHOLD;
+    // OpenAI wants an ISO-639-1 code; without one it guesses the language per
+    // turn and can drift into another language mid-dictation.
+    const base = typeof language === "string" ? language.split("-")[0].toLowerCase() : "";
+    this.language = /^[a-z]{2}$/.test(base) ? base : undefined;
     this.completedSegments = [];
     this.currentPartial = "";
     this.audioBytesSent = 0;
@@ -266,7 +271,9 @@ class OpenAIRealtimeStreaming {
                   audio: {
                     input: {
                       format: { type: "audio/pcm", rate: this.inputRate },
-                      transcription: { model: this.model },
+                      transcription: this.language
+                        ? { model: this.model, language: this.language }
+                        : { model: this.model },
                       turn_detection: turnDetectionFor(this.model, this.vadThreshold),
                     },
                   },

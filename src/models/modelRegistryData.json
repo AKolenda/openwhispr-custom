@@ -259,7 +259,8 @@
           "id": "gpt-transcribe",
           "name": "GPT Transcribe",
           "description": "Newest, most accurate transcription",
-          "descriptionKey": "models.descriptions.transcription.openai_gpt_transcribe"
+          "descriptionKey": "models.descriptions.transcription.openai_gpt_transcribe",
+          "streaming": true
         },
         {
           "id": "gpt-4o-mini-transcribe",

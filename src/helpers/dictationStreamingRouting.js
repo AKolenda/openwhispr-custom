@@ -6,7 +6,11 @@
 // allowlist rejected undefined). Pure module, mirrors meetingTranscriptionRouting.
 import { STREAMING_ONLY_PROVIDERS } from "./transcriptionRoute.ts";
 
-export const REALTIME_MODELS = new Set(["gpt-4o-mini-transcribe", "gpt-4o-transcribe"]);
+export const REALTIME_MODELS = new Set([
+  "gpt-transcribe",
+  "gpt-4o-mini-transcribe",
+  "gpt-4o-transcribe",
+]);
 
 // REALTIME_MODELS is the OpenAI-only shortcut (it forces "openai-realtime"), so
 // Gemini's live model routes on its own. Keying on the model id and not the
