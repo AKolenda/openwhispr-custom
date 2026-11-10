@@ -556,8 +556,7 @@ test("BYOK session.update is byte-for-byte today's payload when no VAD/language/
   const connected = streaming.connect({
     apiKey: "sk-test",
     model: "gpt-4o-mini-transcribe",
-    // Phase 1 will add these; today connect() must ignore them entirely.
-    language: "en",
+    // connect() still ignores these entirely.
     keyterms: ["OpenWhispr"],
     sampleRate: 24000,
     createSocket: async () => socket,
